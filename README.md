@@ -1,5 +1,7 @@
 # Rust Blue Pill Quickstart
 
+![Rust](https://github.com/reneherrero/blue-pill-quickstart/workflows/Rust/badge.svg)
+
 ## Hardware
 
 * [Blue Pill](https://stm32-base.org/boards/STM32F103C8T6-Blue-Pill.html) Minimum System Development board
