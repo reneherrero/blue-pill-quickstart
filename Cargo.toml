@@ -1,8 +1,8 @@
 [package]
-authors = ["René Herrero Gómez <rene@sevenseas.io>"]
+authors = ["Your Name"]
 edition = "2018"
 readme = "README.md"
-name = "saber"
+name = "blue-pill-quickstart"
 version = "0.1.0"
 
 [dependencies]
@@ -13,7 +13,7 @@ panic-semihosting = "0.5.3"
 
 # this lets you use `cargo fix`!
 [[bin]]
-name = "saber"
+name = "blue-pill-quickstart"
 test = false
 bench = false
 

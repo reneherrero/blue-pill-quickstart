@@ -9,7 +9,7 @@
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "cargo build",
             "runToMain": true,
-            "executable": "./target/thumbv7m-none-eabi/debug/saber",
+            "executable": "./target/thumbv7m-none-eabi/debug/blue-pill-quickstart",
             "device": "STM32F103C8T6",
             "configFiles": [
                 "interface/stlink-v2.cfg",
