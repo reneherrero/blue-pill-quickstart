@@ -1,0 +1,23 @@
+[package]
+authors = ["René Herrero Gómez <rene@sevenseas.io>"]
+edition = "2018"
+readme = "README.md"
+name = "saber"
+version = "0.1.0"
+
+[dependencies]
+stm32f1xx-hal = { version = "0.5.3", features = ["rt", "stm32f103" ] }
+cortex-m = "0.6.2"
+cortex-m-rt = { version = "0.6.12", features = ["device"] }
+panic-semihosting = "0.5.3"
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "saber"
+test = false
+bench = false
+
+[profile.release]
+codegen-units = 1 # better optimizations
+debug = true # symbols are nice and they don't increase the size on Flash
+lto = true # better optimizations
