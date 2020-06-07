@@ -18,7 +18,7 @@ rustup target add thumbv7m-none-eabi
 
 * OpenOCD
 ```bash
-sudo apt-get install gdb-multi-arch
+sudo apt-get install openocd
 ```
 
 * GDB
