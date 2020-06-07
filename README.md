@@ -10,6 +10,12 @@
 ## Dependencies for Debian Buster
 
 * VS Code with the Rust and Cortex-Debug add-ins
+If you have the `code` command in your path, you can run the following commands to install the necessary extensions.
+
+```sh
+code --install-extension rust-lang.rust
+code --install-extension marus25.cortex-debug
+```
 
 * The thumbv7m-none-eabi Rust target
 ```bash
