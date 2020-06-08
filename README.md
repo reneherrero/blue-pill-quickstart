@@ -8,7 +8,7 @@
 ![blue pill pinout](BluePillPinout.jpg "blue pill pinout")
 
 * ST-Link V2 USB Programmer
-![ST-Link V2](BluePillPinout.jpg "ST-Link V2")
+![ST-Link V2](STLinkV2.jpg "ST-Link V2")
 
 ## Dependencies for Debian Buster
 
