@@ -5,9 +5,11 @@
 ## Hardware
 
 * [Blue Pill](https://stm32-base.org/boards/STM32F103C8T6-Blue-Pill.html) Minimum System Development board
+
 ![blue pill pinout](BluePillPinout.jpg "blue pill pinout")
 
 * ST-Link V2 USB Programmer
+
 ![ST-Link V2](STLinkV2.jpg "ST-Link V2")
 
 ## Dependencies for Debian Buster
