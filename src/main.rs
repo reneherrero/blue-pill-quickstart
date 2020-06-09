@@ -1,50 +1,105 @@
+//! blinky timer using interrupts on TIM2
+//!
+//! This assumes that a LED is connected to pc13 as is the case on the blue pill board.
+//!
+//! Please note according to RM0008:
+//! "Due to the fact that the switch only sinks a limited amount of current (3 mA), the use of
+//! GPIOs PC13 to PC15 in output mode is restricted: the speed has to be limited to 2MHz with
+//! a maximum load of 30pF and these IOs must not be used as a current source (e.g. to drive a LED)"
+
 #![no_main]
 #![no_std]
 
-// set the panic handler
-extern crate panic_semihosting;
+use panic_halt as _;
 
-use core::sync::atomic::{AtomicBool, Ordering};
-use cortex_m::peripheral::syst::SystClkSource;
-use cortex_m_rt::{entry, exception};
-use stm32f1xx_hal::prelude::*;
+use stm32f1xx_hal as hal;
 
-static TOGGLE_LED: AtomicBool = AtomicBool::new(false);
+use crate::hal::{
+    gpio::{gpioc, Output, PushPull},
+    pac::{interrupt, Interrupt, Peripherals, TIM2},
+    prelude::*,
+    timer::{CountDownTimer, Event, Timer},
+};
+
+use core::cell::RefCell;
+use cortex_m::{asm::wfi, interrupt::Mutex};
+use cortex_m_rt::entry;
+use embedded_hal::digital::v2::OutputPin;
+
+// NOTE You can uncomment 'hprintln' here and in the code below for a bit more
+// verbosity at runtime, at the cost of throwing off the timing of the blink
+// (using 'semihosting' for printing debug info anywhere slows program
+// execution down)
+//use cortex_m_semihosting::hprintln;
+
+// A type definition for the GPIO pin to be used for our LED
+type LEDPIN = gpioc::PC13<Output<PushPull>>;
+
+// Make LED pin globally available
+static G_LED: Mutex<RefCell<Option<LEDPIN>>> = Mutex::new(RefCell::new(None));
+
+// Make timer interrupt registers globally available
+static G_TIM: Mutex<RefCell<Option<CountDownTimer<TIM2>>>> = Mutex::new(RefCell::new(None));
+
+// Define an interupt handler, i.e. function to call when interrupt occurs.
+// This specific interrupt will "trip" when the timer TIM2 times out
+#[interrupt]
+fn TIM2() {
+    static mut LED: Option<LEDPIN> = None;
+    static mut TIM: Option<CountDownTimer<TIM2>> = None;
+
+    let led = LED.get_or_insert_with(|| {
+        cortex_m::interrupt::free(|cs| {
+            // Move LED pin here, leaving a None in its place
+            G_LED.borrow(cs).replace(None).unwrap()
+        })
+    });
+
+    let tim = TIM.get_or_insert_with(|| {
+        cortex_m::interrupt::free(|cs| {
+            // Move LED pin here, leaving a None in its place
+            G_TIM.borrow(cs).replace(None).unwrap()
+        })
+    });
+
+    let _ = led.toggle();
+    let _ = tim.wait();
+}
 
 #[entry]
 fn main() -> ! {
-    let mut core = cortex_m::Peripherals::take().unwrap();
-    let device = stm32f1xx_hal::stm32::Peripherals::take().unwrap();
-    let mut rcc = device.RCC.constrain();
-    let mut flash = device.FLASH.constrain();
+    let dp = Peripherals::take().unwrap();
 
+    let mut rcc = dp.RCC.constrain();
+    let mut flash = dp.FLASH.constrain();
     let clocks = rcc
         .cfgr
-        .use_hse(8.mhz())
-        .sysclk(16.mhz())
+        .sysclk(8.mhz())
+        .pclk1(8.mhz())
         .freeze(&mut flash.acr);
 
-    // configure the user led
-    let mut gpioc = device.GPIOC.split(&mut rcc.apb2);
+    // Configure PC13 pin to blink LED
+    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
     let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
+    let _ = led.set_high(); // Turn off
 
-    // configure SysTick to generate an exception every second
-    core.SYST.set_clock_source(SystClkSource::Core);
-    core.SYST.set_reload(clocks.sysclk().0);
-    core.SYST.enable_counter();
-    core.SYST.enable_interrupt();
+    // Move the pin into our global storage
+    cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
 
-    //let 
-    loop {
-        // sleep
-        cortex_m::asm::wfi();
-        if TOGGLE_LED.swap(false, Ordering::AcqRel) {
-            led.toggle().unwrap();
-        }
+    // Set up a timer expiring after 1s
+    let mut timer = Timer::tim2(dp.TIM2, &clocks, &mut rcc.apb1).start_count_down(10.hz());
+
+    // Generate an interrupt when the timer expires
+    timer.listen(Event::Update);
+
+    // Move the timer into our global storage
+    cortex_m::interrupt::free(|cs| *G_TIM.borrow(cs).borrow_mut() = Some(timer));
+
+    unsafe {
+        cortex_m::peripheral::NVIC::unmask(Interrupt::TIM2);
     }
-}
 
-#[exception]
-fn SysTick() {
-    TOGGLE_LED.store(true, Ordering::Release);
+    loop {
+        wfi();
+    }
 }
