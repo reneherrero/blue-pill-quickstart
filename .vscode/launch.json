@@ -4,7 +4,7 @@
         {
             "type": "cortex-debug",
             "request": "launch",
-            "name": "Debug (OpenOCD)",
+            "name": "Debug",
             "servertype": "openocd",
             "cwd": "${workspaceRoot}",
             "preLaunchTask": "cargo build",

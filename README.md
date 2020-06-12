@@ -1,6 +1,6 @@
 # Rust Blue Pill Quickstart
 
-![Rust](https://github.com/reneherrero/blue-pill-quickstart/workflows/Rust/badge.svg)
+![Continuous integration](https://github.com/reneherrero/blue-pill-quickstart/workflows/Continuous%20Integration/badge.svg)
 
 ## Hardware
 
@@ -11,6 +11,15 @@
 * ST-Link V2 USB Programmer
 
 ![ST-Link V2](STLinkV2.jpg "ST-Link V2")
+
+```bash
+# download the OpenOCD rules file and copy it to the right location
+wget -O 60-openocd.rules https://sf.net/p/openocd/code/ci/master/tree/contrib/60-openocd.rules?format=raw
+sudo cp 60-openocd.rules /etc/udev/rules.d
+
+# ask the udev daemon to reload these rules
+sudo udevadm control --reload
+```
 
 ## Dependencies for Debian Buster
 
@@ -33,8 +42,13 @@ sudo apt-get install openocd
 ```
 
 * GDB
+
 ```bash
-sudo apt-get install gdb-multi-arch #or gdb-arm-none-eabi on some other Linux distros
+# or gdb-arm-none-eabi on some other Linux distros
+sudo apt-get install gdb-multiarch
+
+# workaround: the current version of the cortex-debug doesn't allow you to specify the name of the gdb executable
+sudo ln -s /usr/bin/gdb-multiarch /usr/bin/arm-none-eabi-gdb
 ```
 
 ## Run and Debug
