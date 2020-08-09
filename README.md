@@ -1,6 +1,6 @@
 # Rust Blue Pill Quickstart
 
-![Continuous integration](https://github.com/reneherrero/blue-pill-quickstart/workflows/Continuous%20Integration/badge.svg)
+![ci](https://github.com/reneherrero/blue-pill-quickstart/workflows/ci/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT%20or%20Apache--2-brightgreen)
 
 ## Hardware
