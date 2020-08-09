@@ -27,7 +27,7 @@ sudo udevadm control --reload
 * VS Code with the Rust and Cortex-Debug add-ins
 If you have the `code` command in your path, you can run the following commands to install the necessary extensions.
 
-```sh
+```bash
 code --install-extension rust-lang.rust
 code --install-extension marus25.cortex-debug
 ```
