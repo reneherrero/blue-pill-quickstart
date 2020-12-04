@@ -1,105 +1,75 @@
-//! blinky timer using interrupts on TIM2
-//!
-//! This assumes that a LED is connected to pc13 as is the case on the blue pill board.
-//!
-//! Please note according to RM0008:
-//! "Due to the fact that the switch only sinks a limited amount of current (3 mA), the use of
-//! GPIOs PC13 to PC15 in output mode is restricted: the speed has to be limited to 2MHz with
-//! a maximum load of 30pF and these IOs must not be used as a current source (e.g. to drive a LED)"
 
+#![deny(unsafe_code)]
+#![deny(warnings)]
 #![no_main]
 #![no_std]
 
-use panic_halt as _;
-
-use stm32f1xx_hal as hal;
-
-use crate::hal::{
-    gpio::{gpioc, Output, PushPull},
-    pac::{interrupt, Interrupt, Peripherals, TIM2},
-    prelude::*,
-    timer::{CountDownTimer, Event, Timer},
-};
-
-use core::cell::RefCell;
-use cortex_m::{asm::wfi, interrupt::Mutex};
-use cortex_m_rt::entry;
+extern crate panic_semihosting;
 use embedded_hal::digital::v2::OutputPin;
+use rtic::app;
+use rtic::cyccnt::U32Ext;
+use stm32f1xx_hal::gpio::{gpioc::PC13, Output, PushPull, State};
+use stm32f1xx_hal::prelude::*;
 
-// NOTE You can uncomment 'hprintln' here and in the code below for a bit more
-// verbosity at runtime, at the cost of throwing off the timing of the blink
-// (using 'semihosting' for printing debug info anywhere slows program
-// execution down)
-//use cortex_m_semihosting::hprintln;
+const PERIOD: u32 = 100_000_000;
 
-// A type definition for the GPIO pin to be used for our LED
-type LEDPIN = gpioc::PC13<Output<PushPull>>;
-
-// Make LED pin globally available
-static G_LED: Mutex<RefCell<Option<LEDPIN>>> = Mutex::new(RefCell::new(None));
-
-// Make timer interrupt registers globally available
-static G_TIM: Mutex<RefCell<Option<CountDownTimer<TIM2>>>> = Mutex::new(RefCell::new(None));
-
-// Define an interupt handler, i.e. function to call when interrupt occurs.
-// This specific interrupt will "trip" when the timer TIM2 times out
-#[interrupt]
-fn TIM2() {
-    static mut LED: Option<LEDPIN> = None;
-    static mut TIM: Option<CountDownTimer<TIM2>> = None;
-
-    let led = LED.get_or_insert_with(|| {
-        cortex_m::interrupt::free(|cs| {
-            // Move LED pin here, leaving a None in its place
-            G_LED.borrow(cs).replace(None).unwrap()
-        })
-    });
-
-    let tim = TIM.get_or_insert_with(|| {
-        cortex_m::interrupt::free(|cs| {
-            // Move LED pin here, leaving a None in its place
-            G_TIM.borrow(cs).replace(None).unwrap()
-        })
-    });
-
-    let _ = led.toggle();
-    let _ = tim.wait();
-}
-
-#[entry]
-fn main() -> ! {
-    let dp = Peripherals::take().unwrap();
-
-    let mut rcc = dp.RCC.constrain();
-    let mut flash = dp.FLASH.constrain();
-    let clocks = rcc
-        .cfgr
-        .sysclk(8.mhz())
-        .pclk1(8.mhz())
-        .freeze(&mut flash.acr);
-
-    // Configure PC13 pin to blink LED
-    let mut gpioc = dp.GPIOC.split(&mut rcc.apb2);
-    let mut led = gpioc.pc13.into_push_pull_output(&mut gpioc.crh);
-    let _ = led.set_high(); // Turn off
-
-    // Move the pin into our global storage
-    cortex_m::interrupt::free(|cs| *G_LED.borrow(cs).borrow_mut() = Some(led));
-
-    // Set up a timer expiring after 1s
-    let mut timer = Timer::tim2(dp.TIM2, &clocks, &mut rcc.apb1).start_count_down(10.hz());
-
-    // Generate an interrupt when the timer expires
-    timer.listen(Event::Update);
-
-    // Move the timer into our global storage
-    cortex_m::interrupt::free(|cs| *G_TIM.borrow(cs).borrow_mut() = Some(timer));
-
-    unsafe {
-        cortex_m::peripheral::NVIC::unmask(Interrupt::TIM2);
+// We need to pass monotonic = rtic::cyccnt::CYCCNT to use schedule feature fo RTIC
+#[app(device = stm32f1xx_hal::pac, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
+const APP: () = {
+    // Global resources (global variables) are defined here and initialized with the 
+    // `LateResources` struct in init
+    struct Resources {
+        led: PC13<Output<PushPull>>,
     }
 
-    loop {
-        wfi();
+    #[init(schedule = [blinker])]
+    fn init(cx: init::Context) -> init::LateResources {
+        // Enable cycle counter
+        let mut core = cx.core;
+        core.DWT.enable_cycle_counter();
+
+        let device: stm32f1xx_hal::stm32::Peripherals = cx.device;
+
+        // Setup clocks
+        let mut flash = device.FLASH.constrain();
+        let mut rcc = device.RCC.constrain();
+        let mut _afio = device.AFIO.constrain(&mut rcc.apb2);
+        let _clocks = rcc
+            .cfgr
+            .use_hse(8.mhz())
+            .sysclk(72.mhz())
+            .pclk1(36.mhz())
+            .freeze(&mut flash.acr);
+
+        // Setup LED
+        let mut gpioc = device.GPIOC.split(&mut rcc.apb2);
+        let mut led = gpioc
+            .pc13
+            .into_push_pull_output_with_state(&mut gpioc.crh, State::Low);
+        led.set_low().unwrap();
+
+        // Schedule the blinking task
+        cx.schedule.blinker(cx.start + PERIOD.cycles()).unwrap();
+
+        init::LateResources { led: led }
     }
-}
+
+    #[task(resources = [led], schedule = [blinker])]
+    fn blinker(cx: blinker::Context) {
+        // Use the safe local `static mut` of RTIC
+        static mut LED_STATE: bool = false;
+
+        if *LED_STATE {
+            cx.resources.led.set_high().unwrap();
+            *LED_STATE = false;
+        } else {
+            cx.resources.led.set_low().unwrap();
+            *LED_STATE = true;
+        }
+        cx.schedule.blinker(cx.scheduled + PERIOD.cycles()).unwrap();
+    }
+
+    extern "C" {
+        fn EXTI0();
+    }
+};
