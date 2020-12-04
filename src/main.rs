@@ -1,4 +1,3 @@
-
 #![deny(unsafe_code)]
 #![deny(warnings)]
 #![no_main]
@@ -16,7 +15,7 @@ const PERIOD: u32 = 100_000_000;
 // We need to pass monotonic = rtic::cyccnt::CYCCNT to use schedule feature fo RTIC
 #[app(device = stm32f1xx_hal::pac, peripherals = true, monotonic = rtic::cyccnt::CYCCNT)]
 const APP: () = {
-    // Global resources (global variables) are defined here and initialized with the 
+    // Global resources (global variables) are defined here and initialized with the
     // `LateResources` struct in init
     struct Resources {
         led: PC13<Output<PushPull>>,
@@ -51,7 +50,7 @@ const APP: () = {
         // Schedule the blinking task
         cx.schedule.blinker(cx.start + PERIOD.cycles()).unwrap();
 
-        init::LateResources { led: led }
+        init::LateResources { led }
     }
 
     #[task(resources = [led], schedule = [blinker])]
